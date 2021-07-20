@@ -88,6 +88,8 @@ export class FetchRequest {
     try {
       this.delegate.requestStarted(this)
       const response = await fetch(this.url.href, fetchOptions)
+      // @ts-ignore
+      if (response.redirected === undefined) response.redirected = response.url !== this.url.href
       return await this.receive(response)
     } catch (error) {
       if (error.name !== 'AbortError') {
