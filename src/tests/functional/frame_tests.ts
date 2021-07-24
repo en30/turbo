@@ -46,6 +46,20 @@ export class FrameTests extends TurboDriveTestCase {
     this.assert.equal(await frameText.getVisibleText(), "Frame: Loaded")
   }
 
+  async "test following a link reloads the target <turbo-frame> even if the href is same as the src"() {
+    await this.clickSelector("#hello a")
+    await this.nextBeat
+
+    await this.evaluate(() => document.querySelector("#frame h2")?.remove())
+    this.assert.equal(await this.hasSelector("#frame h2"), false)
+
+    await this.clickSelector("#hello a")
+    await this.nextBeat
+    const frameText = await this.querySelector("#frame h2")
+    this.assert.equal(await frameText.getVisibleText(), "Frame: Loaded")
+  }
+
+
   async "test following a link within a descendant frame whose ancestor declares a target set navigates the descendant frame"() {
     const link = await this.querySelector("#nested-root[target=frame] #nested-child a:not([data-turbo-frame])")
     const href = await link.getProperty("href")

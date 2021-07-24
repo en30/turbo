@@ -13,6 +13,14 @@ import { LinkInterceptor, LinkInterceptorDelegate } from "./link_interceptor"
 import { FrameRenderer } from "./frame_renderer"
 import { elementIsNavigable } from "../session"
 
+enum LoadState {
+  idle,
+  pending,
+  navigating,
+  submitting,
+  loaded,
+}
+
 export class FrameController implements AppearanceObserverDelegate, FetchRequestDelegate, FormInterceptorDelegate, FormSubmissionDelegate, FrameElementDelegate, LinkInterceptorDelegate, ViewDelegate<Snapshot<FrameElement>> {
   readonly element: FrameElement
   readonly view: FrameView
@@ -25,6 +33,7 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
   private connected = false
   private loadedAtLeastOnce = false
   private settingSourceURL = false
+  private loadState = LoadState.idle
 
   constructor(element: FrameElement) {
     this.element = element
@@ -39,10 +48,12 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
       this.connected = true
       if (this.effectiveLoadingStyle == FrameLoadingStyle.lazy) {
         this.appearanceObserver.start()
+      } else {
+        this.loadSourceURL()
       }
       this.linkInterceptor.start()
       this.formInterceptor.start()
-      this.sourceURLChanged()
+
     }
   }
 
@@ -62,6 +73,7 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
   }
 
   sourceURLChanged() {
+    this.loadState = this.sourceURL ? LoadState.pending : LoadState.idle;
     if (this.effectiveLoadingStyle == FrameLoadingStyle.eager) {
       this.loadSourceURL()
     }
@@ -77,15 +89,17 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
   }
 
   async loadSourceURL() {
-    if (!this.settingSourceURL && this.enabled && this.isActive && this.sourceURL != this.currentURL) {
+    if (!this.settingSourceURL && this.enabled && this.isActive && this.loadState == LoadState.pending) {
       const previousURL = this.currentURL
       this.currentURL = this.sourceURL
       if (this.sourceURL) {
         try {
+          this.loadState = LoadState.navigating
           this.element.loaded = this.visit(this.sourceURL)
           this.appearanceObserver.stop()
           await this.element.loaded
           this.loadedAtLeastOnce = true
+          this.loadState = LoadState.loaded
         } catch (error) {
           this.currentURL = previousURL
           throw error
@@ -191,6 +205,7 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
   // Form submission delegate
 
   formSubmissionStarted(formSubmission: FormSubmission) {
+    this.loadState = LoadState.submitting
     const frame = this.findFrameElement(formSubmission.formElement)
     frame.setAttribute("busy", "")
   }
@@ -322,7 +337,6 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
   set sourceURL(sourceURL: string | undefined) {
     this.settingSourceURL = true
     this.element.src = sourceURL ?? null
-    this.currentURL = this.element.src
     this.settingSourceURL = false
   }
 
