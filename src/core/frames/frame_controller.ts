@@ -23,7 +23,7 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
   formSubmission?: FormSubmission
   private resolveVisitPromise = () => {}
   private connected = false
-  private hasBeenLoaded = false
+  private loadedAtLeastOnce = false
   private settingSourceURL = false
 
   constructor(element: FrameElement) {
@@ -37,7 +37,7 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
   connect() {
     if (!this.connected) {
       this.connected = true
-      if (this.loadingStyle == FrameLoadingStyle.lazy) {
+      if (this.effectiveLoadingStyle == FrameLoadingStyle.lazy) {
         this.appearanceObserver.start()
       }
       this.linkInterceptor.start()
@@ -56,19 +56,19 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
   }
 
   disabledChanged() {
-    if (this.loadingStyle == FrameLoadingStyle.eager) {
+    if (this.effectiveLoadingStyle == FrameLoadingStyle.eager) {
       this.loadSourceURL()
     }
   }
 
   sourceURLChanged() {
-    if (this.loadingStyle == FrameLoadingStyle.eager || this.hasBeenLoaded) {
+    if (this.effectiveLoadingStyle == FrameLoadingStyle.eager) {
       this.loadSourceURL()
     }
   }
 
   loadingStyleChanged() {
-    if (this.loadingStyle == FrameLoadingStyle.lazy) {
+    if (this.effectiveLoadingStyle == FrameLoadingStyle.lazy) {
       this.appearanceObserver.start()
     } else {
       this.appearanceObserver.stop()
@@ -85,7 +85,7 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
           this.element.loaded = this.visit(this.sourceURL)
           this.appearanceObserver.stop()
           await this.element.loaded
-          this.hasBeenLoaded = true
+          this.loadedAtLeastOnce = true
         } catch (error) {
           this.currentURL = previousURL
           throw error
@@ -296,6 +296,11 @@ export class FrameController implements AppearanceObserverDelegate, FetchRequest
     }
 
     return true
+  }
+
+  private get effectiveLoadingStyle() {
+    if (this.loadingStyle === FrameLoadingStyle.lazy && !this.loadedAtLeastOnce) return FrameLoadingStyle.lazy;
+    return FrameLoadingStyle.eager;
   }
 
   // Computed properties
