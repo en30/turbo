@@ -140,6 +140,11 @@ export class FormSubmission {
         headers["X-CSRF-Token"] = token
       }
       headers["Accept"] = [ StreamMessage.contentType, headers["Accept"] ].join(", ")
+
+      // temprary fix for fetch polyfill
+      if(request.body instanceof URLSearchParams) {
+        headers["Content-Type"] = "application/x-www-form-urlencoded;charset=UTF-8"
+      }
     }
   }
 
